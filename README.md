@@ -8,6 +8,10 @@
 - 自动贴边隐藏
 - 鼠标拖拽移动
 - 显示每日主题图片
+- 每日事务管理
+  - 添加和管理待办事项
+  - 标记任务完成状态
+  - 删除已完成任务
 - 支持开机自启动
 
 ## 3. 代码结构
@@ -27,6 +31,12 @@ FloatingBall
 │   └── show_ball      # 完全显示悬浮球
 ├── 主题图片显示
 │   └── show_theme     # 显示主题图片窗口
+├── 事务管理
+│   ├── show_task_window   # 显示事务窗口
+│   ├── add_task          # 添加新事务
+│   ├── update_task_list  # 更新事务列表
+│   ├── toggle_task_status # 切换任务状态
+│   └── delete_task       # 删除任务
 └── 启动项管理
     ├── add_to_startup      # 添加到开机启动
     ├── check_startup_status # 检查启动状态

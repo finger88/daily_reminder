@@ -6,6 +6,7 @@ import win32gui
 import win32con
 import win32api
 from image_manager import ImageManager
+from task_manager import TaskManager
 
 class FloatingBall:
     """
@@ -44,20 +45,30 @@ class FloatingBall:
         self.root.wm_attributes('-toolwindow', True)  # 设置为工具窗口
         self.root.overrideredirect(True)  # 移除窗口边框
         
-        # 创建按钮
-        self.button = tk.Button(self.root, text="每日\n主题", 
+        # 创建主题按钮
+        self.theme_button = tk.Button(self.root, text="每日\n主题", 
                               width=8, height=2,  
                               bg='#2196F3', fg='white',
                               relief='raised',
                               font=('Arial', 10, 'bold'),  
                               command=self.show_theme)
-        self.button.pack(padx=2, pady=2)
+        self.theme_button.pack(padx=2, pady=2)
+        
+        # 创建事务按钮
+        self.task_button = tk.Button(self.root, text="记录\n事务", 
+                              width=8, height=2,  
+                              bg='#4CAF50', fg='white',
+                              relief='raised',
+                              font=('Arial', 10, 'bold'),  
+                              command=self.show_task_window)
+        self.task_button.pack(padx=2, pady=2)
         
         # 绑定鼠标事件
-        self.button.bind('<Button-1>', self.on_click)  # 左键点击
-        self.button.bind('<B1-Motion>', self.on_move)  # 拖拽移动
-        self.button.bind('<Enter>', self.on_enter)    # 鼠标进入
-        self.button.bind('<Leave>', self.on_leave)    # 鼠标离开
+        for button in [self.theme_button, self.task_button]:
+            button.bind('<Button-1>', self.on_click)  # 左键点击
+            button.bind('<B1-Motion>', self.on_move)  # 拖拽移动
+            button.bind('<Enter>', self.on_enter)    # 鼠标进入
+            button.bind('<Leave>', self.on_leave)    # 鼠标离开
         
         # 设置初始位置（屏幕右侧中间）
         self.screen_width = self.root.winfo_screenwidth()
@@ -69,6 +80,12 @@ class FloatingBall:
         
         # 初始化图片管理器
         self.image_manager = ImageManager()
+        
+        # 初始化事务管理器
+        self.task_manager = TaskManager()
+        
+        # 事务窗口引用
+        self.task_window = None
         
         # 自动隐藏相关变量
         self.is_hidden = False      # 是否处于隐藏状态
@@ -306,6 +323,112 @@ class FloatingBall:
         else:
             self.add_to_startup()
 
+    def show_task_window(self):
+        """显示事务记录窗口
+        
+        主要功能：
+        1. 创建新窗口用于记录事务
+        2. 显示当天的事务列表
+        3. 提供添加和管理事务的界面
+        """
+        if self.task_window and self.task_window.winfo_exists():
+            self.task_window.destroy()
+            self.task_window = None
+            return
+            
+        self.task_window = tk.Toplevel(self.root)
+        self.task_window.title("每日事务")
+        self.task_window.attributes('-topmost', True)
+        
+        # 设置窗口为普通窗口
+        self.task_window.overrideredirect(False)
+        self.task_window.wm_attributes('-toolwindow', False)
+        
+        # 创建输入框和按钮
+        input_frame = tk.Frame(self.task_window)
+        input_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        self.task_entry = tk.Entry(input_frame)
+        self.task_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        add_button = tk.Button(input_frame, text="添加", command=self.add_task)
+        add_button.pack(side=tk.LEFT, padx=5)
+        
+        # 创建任务列表
+        self.task_listbox = tk.Listbox(self.task_window, width=40, height=15)
+        self.task_listbox.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        # 添加右键菜单
+        task_menu = tk.Menu(self.task_listbox, tearoff=0)
+        task_menu.add_command(label="完成", command=lambda: self.toggle_task_status(True))
+        task_menu.add_command(label="取消完成", command=lambda: self.toggle_task_status(False))
+        task_menu.add_separator()
+        task_menu.add_command(label="删除", command=self.delete_task)
+        
+        def show_task_menu(event):
+            try:
+                index = self.task_listbox.nearest(event.y)
+                if index >= 0:
+                    self.task_listbox.selection_clear(0, tk.END)
+                    self.task_listbox.selection_set(index)
+                    task_menu.post(event.x_root, event.y_root)
+            except tk.TclError:
+                pass
+        
+        self.task_listbox.bind('<Button-3>', show_task_menu)
+        
+        # 更新任务列表
+        self.update_task_list()
+        
+        # 设置窗口位置
+        window_width = 300
+        window_height = 400
+        x = (self.screen_width - window_width) // 2
+        y = (self.screen_height - window_height) // 2
+        self.task_window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    
+    def add_task(self):
+        """添加新事务"""
+        content = self.task_entry.get().strip()
+        if content:
+            self.task_manager.add_task(content)
+            self.task_entry.delete(0, tk.END)
+            self.update_task_list()
+    
+    def update_task_list(self):
+        """更新事务列表显示"""
+        self.task_listbox.delete(0, tk.END)
+        tasks = self.task_manager.get_tasks()
+        for task in tasks:
+            status = "[√] " if task['completed'] else "[ ] "
+            self.task_listbox.insert(tk.END, f"{status}{task['content']}")
+            # 如果任务已完成，添加删除线效果
+            if task['completed']:
+                index = self.task_listbox.size() - 1
+                self.task_listbox.itemconfig(index, fg='gray')
+    
+    def toggle_task_status(self, completed):
+        """切换任务状态"""
+        selection = self.task_listbox.curselection()
+        if selection:
+            index = selection[0]
+            tasks = self.task_manager.get_tasks()
+            if index < len(tasks):
+                task_id = tasks[index]['id']
+                self.task_manager.update_task(task_id, completed=completed)
+                self.update_task_list()
+    
+    def delete_task(self):
+        """删除任务"""
+        selection = self.task_listbox.curselection()
+        if selection:
+            index = selection[0]
+            tasks = self.task_manager.get_tasks()
+            if index < len(tasks):
+                task_id = tasks[index]['id']
+                self.task_manager.delete_task(task_id)
+                self.update_task_list()
+    
     def run(self):
         """运行应用程序
         
@@ -328,8 +451,9 @@ class FloatingBall:
             startup_var.set(self.check_startup_status())  # 更新复选框状态
             menu.post(event.x_root, event.y_root)
             
-        self.button.bind('<Button-3>', show_menu)
-        self.button.bind('<ButtonRelease-1>', self.on_release)
+        for button in [self.theme_button, self.task_button]:
+            button.bind('<Button-3>', show_menu)
+            button.bind('<ButtonRelease-1>', self.on_release)
         
         self.root.mainloop()
 
