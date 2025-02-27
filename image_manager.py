@@ -42,6 +42,19 @@ class ImageManager:
             f"{today}.jpg",
             self.default_image
         ]
+        
+    def get_today_images(self):
+        """获取今日所有可用的图片路径列表
+        
+        Returns:
+            list: 图片文件路径列表
+        """
+        image_paths = []
+        for name in self._get_today_image_names():
+            path = os.path.join(self.images_dir, name)
+            if os.path.exists(path):
+                image_paths.append(path)
+        return image_paths
     
     def _clear_cache(self):
         """清理图片缓存"""
@@ -63,17 +76,21 @@ class ImageManager:
                 dst_path = os.path.join(self.images_dir, filename)
                 shutil.copy2(src_path, dst_path)
     
-    def get_image_path(self):
+    def get_image_path(self, index=0):
         """获取当前应显示的图片路径
         
+        Args:
+            index: 图片索引，用于切换不同图片
+            
         Returns:
             str: 图片文件路径，如果没有找到则返回None
         """
-        for name in self._get_today_image_names():
-            path = os.path.join(self.images_dir, name)
-            if os.path.exists(path):
-                return path
-        return None
+        images = self.get_today_images()
+        if not images:
+            return None
+        # 确保索引在有效范围内
+        index = index % len(images) if images else 0
+        return images[index]
     
     def load_image(self, max_size=None):
         """加载并处理图片

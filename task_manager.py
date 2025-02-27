@@ -147,3 +147,45 @@ class TaskManager:
             json.dump(data, f, ensure_ascii=False, indent=4)
         
         return True
+        
+    def get_history_dates(self):
+        """获取所有历史记录的日期列表
+        
+        Returns:
+            list: 日期列表，按时间倒序排序
+        """
+        dates = []
+        for filename in os.listdir(self.tasks_dir):
+            if filename.endswith('.json'):
+                date = filename[:-5]  # 移除.json后缀
+                dates.append(date)
+        return sorted(dates, reverse=True)
+    
+    def get_tasks_by_date_range(self, start_date=None, end_date=None):
+        """获取指定日期范围内的所有任务
+        
+        Args:
+            start_date: 开始日期（YYYY-MM-DD），默认为最早日期
+            end_date: 结束日期（YYYY-MM-DD），默认为最新日期
+            
+        Returns:
+            dict: 按日期分组的任务字典
+        """
+        all_tasks = {}
+        dates = self.get_history_dates()
+        
+        if not dates:
+            return all_tasks
+            
+        if start_date is None:
+            start_date = dates[-1]  # 最早的日期
+        if end_date is None:
+            end_date = dates[0]    # 最新的日期
+            
+        for date in dates:
+            if start_date <= date <= end_date:
+                tasks = self.get_tasks(date)
+                if tasks:  # 只添加有任务的日期
+                    all_tasks[date] = tasks
+                    
+        return all_tasks
